@@ -17,6 +17,7 @@ module ShopifyApp
     def callback
       if auth_hash
         login_shop
+        sync_store_info
         install_webhooks
         install_scripttags
         perform_after_authenticate_job
@@ -55,6 +56,19 @@ module ShopifyApp
       session[:shopify] = ShopifyApp::SessionRepository.store(sess)
       session[:shopify_domain] = shop_name
       session[:shopify_user] = associated_user if associated_user.present?
+    end
+
+    def sync_store_info
+      store = Store.find_by(shopify_domain: current_shopify_domain)
+
+      new_session = ShopifyAPI::Session.new(shop_name, token)
+      ShopifyAPI::Base.activate_session(new_session)
+      store_attributes = ShopifyAPI::Shop.current.attributes
+
+      store.platform_store_id = store_attributes[:id]
+      store.name = store_attributes[:name]
+      store.email = store_attributes[:email]
+      store.save
     end
 
     def auth_hash
